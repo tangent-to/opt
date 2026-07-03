@@ -24,6 +24,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest --coverage",
+    "test:scipy": "uv run --with scipy python3 tests_compare-to-scipy/compare_with_scipy.py",
     "build:browser": "esbuild src/index.js --bundle --platform=browser --format=esm --target=es2020 --outfile=dist/index.js --sourcemap --minify --keep-names",
     "watch": "esbuild src/index.js --bundle --platform=browser --format=esm --target=es2020 --outfile=dist/index.js --sourcemap --keep-names --watch",
     "jsr:publish": "deno publish --allow-dirty",

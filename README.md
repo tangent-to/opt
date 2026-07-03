@@ -77,6 +77,19 @@ const opt = createOptimizer('adam', { learningRate: 0.05 });
 const { x, history } = opt.minimize((x) => ({ loss, gradient }), x0);
 ```
 
+## Validation against scipy
+
+`tests_compare-to-scipy/` cross-checks the minimizers against
+`scipy.optimize` on standard test functions (Rosenbrock, Booth, Himmelblau,
+Beale, sphere): Nelder-Mead vs scipy's Nelder-Mead, gradient methods vs the
+BFGS reference optimum, and `numericalGradient` vs `approx_fprime`. Agreement
+is at 1e-3 or better on x (typically 1e-5). Requires
+[uv](https://docs.astral.sh/uv/) and Node:
+
+```bash
+npm run test:scipy
+```
+
 ## Roadmap
 
 - `opt/minimize`: L-BFGS, conjugate gradient (Wolfe line search)
