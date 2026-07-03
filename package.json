@@ -1,0 +1,59 @@
+{
+  "name": "@tangent.to/opt",
+  "version": "0.1.0",
+  "description": "Declarative numerical optimization for JavaScript (ESM): Nelder-Mead, gradient descent, momentum, RMSProp, Adam",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "browser": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "prepare": "npm run build:browser",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest --coverage",
+    "build:browser": "esbuild src/index.js --bundle --platform=browser --format=esm --target=es2020 --outfile=dist/index.js --sourcemap --minify --keep-names",
+    "watch": "esbuild src/index.js --bundle --platform=browser --format=esm --target=es2020 --outfile=dist/index.js --sourcemap --keep-names --watch",
+    "jsr:publish": "deno publish --allow-dirty",
+    "jsr:publish:dry-run": "deno publish --dry-run --allow-dirty",
+    "deno:lint": "deno lint src/",
+    "deno:fmt": "deno fmt src/",
+    "deno:check": "deno check src/index.js"
+  },
+  "keywords": [
+    "optimization",
+    "minimize",
+    "nelder-mead",
+    "gradient-descent",
+    "adam",
+    "numerical",
+    "esm",
+    "browser"
+  ],
+  "author": "Essi Parent",
+  "license": "MIT",
+  "homepage": "https://github.com/tangent-to/opt",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tangent-to/opt"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.11",
+    "vitest": "^1.6.0"
+  }
+}
