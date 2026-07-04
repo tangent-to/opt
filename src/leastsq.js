@@ -12,8 +12,30 @@
  */
 
 import { solve } from './linsolve.js';
+import { makeBoundsTransform, wrapResiduals } from './bounds.js';
 
 const FD_STEP = 1e-6;
+
+/**
+ * Robust loss functions, scipy.optimize.least_squares-compatible:
+ * cost = 0.5 * fScale^2 * sum(rho(z_i)) with z_i = (r_i / fScale)^2.
+ * drho is rho'(z), used as the IRLS weight in the normal equations.
+ */
+const LOSSES = {
+  linear: null,
+  huber: {
+    rho: (z) => (z <= 1 ? z : 2 * Math.sqrt(z) - 1),
+    drho: (z) => (z <= 1 ? 1 : 1 / Math.sqrt(z)),
+  },
+  soft_l1: {
+    rho: (z) => 2 * (Math.sqrt(1 + z) - 1),
+    drho: (z) => 1 / Math.sqrt(1 + z),
+  },
+  cauchy: {
+    rho: (z) => Math.log1p(z),
+    drho: (z) => 1 / (1 + z),
+  },
+};
 
 /**
  * Central finite-difference Jacobian of a residual function.
@@ -55,13 +77,42 @@ function halfSumSquares(r) {
 }
 
 /**
- * Form the normal-equation pieces J^T J (n-by-n) and g = J^T r (length n).
+ * Robust cost 0.5 * fScale^2 * sum(rho((r/fScale)^2)); reduces to
+ * halfSumSquares for the linear loss. NaN if any residual is non-finite.
+ */
+function robustCost(r, lossFn, fScale) {
+  if (!lossFn) return halfSumSquares(r);
+  let sum = 0;
+  const s2 = fScale * fScale;
+  for (let j = 0; j < r.length; j++) {
+    sum += lossFn.rho((r[j] * r[j]) / s2);
+  }
+  return 0.5 * s2 * sum;
+}
+
+/** Per-residual IRLS weights rho'((r/fScale)^2), or null for the linear loss. */
+function robustWeights(r, lossFn, fScale) {
+  if (!lossFn) return null;
+  const w = new Array(r.length);
+  const s2 = fScale * fScale;
+  for (let j = 0; j < r.length; j++) {
+    w[j] = lossFn.drho((r[j] * r[j]) / s2);
+  }
+  return w;
+}
+
+/**
+ * Form the (optionally IRLS-weighted) normal-equation pieces
+ * J^T W J (n-by-n) and g = J^T W r (length n), W = diag(w).
+ * With w = null this is plain J^T J and J^T r; with robust weights, g is
+ * exactly the gradient of the robust cost, so the gTol test stays valid.
  *
  * @param {Array<Array<number>>} J - m-by-n Jacobian
  * @param {Array<number>} r - Residuals of length m
+ * @param {Array<number>|null} [w] - Per-residual weights
  * @returns {{JTJ: Array<Array<number>>, g: Array<number>}}
  */
-function normalEquations(J, r) {
+function normalEquations(J, r, w = null) {
   const m = J.length;
   const n = J[0].length;
   const JTJ = new Array(n);
@@ -71,10 +122,11 @@ function normalEquations(J, r) {
   }
   for (let k = 0; k < m; k++) {
     const row = J[k];
+    const wk = w === null ? 1 : w[k];
     for (let i = 0; i < n; i++) {
-      g[i] += row[i] * r[k];
+      g[i] += wk * row[i] * r[k];
       for (let j = i; j < n; j++) {
-        JTJ[i][j] += row[i] * row[j];
+        JTJ[i][j] += wk * row[i] * row[j];
       }
     }
   }
@@ -101,6 +153,12 @@ function normalEquations(J, r) {
  * @param {number} [spec.lambda0=1e-3] - Initial damping
  * @param {number} [spec.lambdaUp=10] - Damping increase factor on rejection
  * @param {number} [spec.lambdaDown=10] - Damping decrease factor on acceptance
+ * @param {string} [spec.loss='linear'] - 'linear' | 'huber' | 'soft_l1' | 'cauchy';
+ *   robust losses down-weight outliers (IRLS, scipy least_squares semantics)
+ * @param {number} [spec.fScale=1] - Residual scale at which the robust losses
+ *   start to flatten (scipy's f_scale)
+ * @param {Array<Array<number|null>>} [spec.bounds] - Per-parameter [lo, hi] box
+ *   bounds (MINUIT transform; null/±Infinity for unbounded sides)
  * @param {boolean} [spec.history=false] - Record {cost, lambda} per accepted iteration
  * @returns {Object} {x, fx, residuals, iterations, fevals, converged, history?}
  */
@@ -116,6 +174,9 @@ export function leastSquares(spec = {}) {
     lambda0 = 1e-3,
     lambdaUp = 10,
     lambdaDown = 10,
+    loss = 'linear',
+    fScale = 1,
+    bounds,
     history: trackHistory = false,
   } = spec;
 
@@ -124,6 +185,26 @@ export function leastSquares(spec = {}) {
   }
   if (!Array.isArray(x0) || x0.length === 0 || x0.some((v) => typeof v !== 'number')) {
     throw new Error('leastSquares: spec.x0 must be a non-empty array of numbers');
+  }
+  if (!(loss in LOSSES)) {
+    throw new Error(
+      `leastSquares: unknown loss '${loss}'. Available: ${Object.keys(LOSSES).join(', ')}`,
+    );
+  }
+  const lossFn = LOSSES[loss];
+
+  // Box bounds: solve in MINUIT-transformed internal space, report externally.
+  const T = bounds ? makeBoundsTransform(bounds, x0.length) : null;
+  if (T) {
+    const wrapped = wrapResiduals(residuals, jacobian, T);
+    const inner = leastSquares({
+      ...spec,
+      bounds: undefined,
+      residuals: wrapped.residuals,
+      jacobian: wrapped.jacobian,
+      x0: T.toInternal(x0),
+    });
+    return { ...inner, x: T.toExternal(inner.x), bounded: true };
   }
 
   const n = x0.length;
@@ -139,7 +220,7 @@ export function leastSquares(spec = {}) {
     throw new Error('leastSquares: residuals must return a non-empty array of numbers');
   }
   const m = r.length;
-  let cost = halfSumSquares(r);
+  let cost = robustCost(r, lossFn, fScale);
   if (!Number.isFinite(cost)) {
     throw new Error('leastSquares: residuals are not finite at x0');
   }
@@ -156,7 +237,7 @@ export function leastSquares(spec = {}) {
   outer:
   while (iteration < maxIter) {
     const J = evalJacobian(x);
-    const { JTJ, g } = normalEquations(J, r);
+    const { JTJ, g } = normalEquations(J, r, robustWeights(r, lossFn, fScale));
 
     let gMax = 0;
     for (let i = 0; i < n; i++) {
@@ -198,7 +279,7 @@ export function leastSquares(spec = {}) {
           xTrial[i] = x[i] + delta[i];
         }
         rTrial = evalResiduals(xTrial);
-        trialCost = halfSumSquares(rTrial);
+        trialCost = robustCost(rTrial, lossFn, fScale);
       }
 
       if (Number.isFinite(trialCost) && trialCost < cost) {
@@ -289,11 +370,14 @@ export function curveFit(spec = {}) {
   // Covariance estimate: cov = inv(J^T J) * s^2 with s^2 = 2*fx / (m - n),
   // solved column-by-column against the identity. Singular or
   // under-determined systems yield NaN entries instead of throwing.
+  // The Gaussian formula is only valid for the linear loss; robust fits
+  // report NaN (a sandwich estimator may be added later).
   const n = p0.length;
   const cov = new Array(n);
   const stdErr = new Array(n);
   let filled = false;
-  if (m > n) {
+  const gaussian = !options.loss || options.loss === 'linear';
+  if (m > n && gaussian) {
     const J = options.jacobian ? options.jacobian(result.x) : fdJacobian(residuals, result.x, m);
     const { JTJ } = normalEquations(J, result.residuals);
     const s2 = (2 * result.fx) / (m - n);

@@ -23,6 +23,7 @@ from scipy.optimize import (
     approx_fprime,
     brentq,
     curve_fit as sp_curve_fit,
+    least_squares as sp_least_squares,
     minimize as sp_minimize,
     minimize_scalar as sp_minimize_scalar,
 )
@@ -125,11 +126,10 @@ def compare_neldermead():
 def compare_gradient_methods():
     """opt gradient methods vs scipy reference optimum (BFGS, tight tolerance)."""
     print("\n== Gradient methods vs scipy reference optimum (BFGS) ==")
+    # momentum/rmsprop are compat-layer only (not in the minimize() roster)
     cases = [
         ("adam", "sphere", [3.0, -2.0], {"learningRate": 0.1, "maxIter": 10000}, 1e-4),
         ("gd", "sphere", [3.0, -2.0], {"learningRate": 0.1, "maxIter": 10000}, 1e-4),
-        ("momentum", "sphere", [3.0, -2.0], {"learningRate": 0.05, "maxIter": 10000}, 1e-4),
-        ("rmsprop", "sphere", [3.0, -2.0], {"learningRate": 0.05, "maxIter": 10000}, 1e-3),
         ("adam", "rosenbrock", [-1.2, 1.0], {"learningRate": 0.01, "maxIter": 50000}, 1e-2),
     ]
     grads = {"sphere": sphere_grad, "rosenbrock": rosenbrock_grad}
@@ -256,6 +256,57 @@ def compare_curve_fit():
     check("sigmoid params", dp2 < 1e-4, f"|p_js - p_scipy|_max={dp2:.2e}")
 
 
+def compare_bounds():
+    """Bounded minimize (MINUIT transform) vs scipy L-BFGS-B with box bounds."""
+    print("\n== bounded minimize vs scipy L-BFGS-B(bounds) ==")
+    cases = [
+        # (function, x0, bounds, expected active constraint?)
+        ("rosenbrock", [0.0, 0.0], [[-0.5, 0.5], [-0.5, 0.5]]),   # active at x0=0.5
+        ("booth", [2.0, 2.0], [[0.0, 10.0], [0.0, 10.0]]),        # interior optimum
+        ("sphere", [3.0, -2.0], [[1.0, None], [None, -1.0]]),     # both bounds active
+    ]
+    for name, x0, bounds in cases:
+        js = run_node({
+            "function": name, "x0": x0, "method": "lbfgs", "grad": name in ("sphere", "rosenbrock"),
+            "options": {"bounds": bounds},
+        })
+        sp_bounds = [(lo, hi) for lo, hi in bounds]
+        sp = sp_minimize(PY_FUNCS[name], x0, method="L-BFGS-B", bounds=sp_bounds,
+                         options={"gtol": 1e-12, "ftol": 1e-15})
+        dx = float(np.max(np.abs(np.asarray(js["x"]) - sp.x)))
+        # the sin/sqrt transform reaches active bounds asymptotically: 1e-3 tolerance
+        check(f"{name} bounds={bounds}", dx < 1e-3,
+              f"|x_js - x_scipy|_max={dx:.2e}, x_js={np.round(js['x'], 4).tolist()}")
+
+
+def compare_robust_losses():
+    """Robust curveFit vs scipy.optimize.least_squares(loss=...) on outlier data."""
+    print("\n== robust losses vs scipy.optimize.least_squares(loss=...) ==")
+    rng = np.random.default_rng(7)
+    x = np.linspace(0, 10, 40)
+    y = 2.0 * x + 1.0 + 0.05 * rng.standard_normal(x.size)
+    y[4] += 30
+    y[19] -= 25
+    y[33] += 40
+    f_scale = 0.1
+
+    for loss in ["huber", "soft_l1", "cauchy"]:
+        js = run_node({
+            "mode": "curve_fit", "model": "linear",
+            "x": x.tolist(), "y": y.tolist(), "p0": [1.0, 0.0],
+            "options": {"loss": loss, "fScale": f_scale},
+        })
+        sp = sp_least_squares(
+            lambda p: (p[0] * x + p[1]) - y, [1.0, 0.0],
+            loss=loss, f_scale=f_scale, xtol=1e-14, ftol=1e-14, gtol=1e-14,
+        )
+        # note: our residual sign is y - model; scipy's here is model - y.
+        # The M-estimate objective is symmetric in the sign, so optima coincide.
+        dp = float(np.max(np.abs(np.asarray(js["params"]) - sp.x)))
+        check(f"{loss} on outlier line", dp < 1e-4,
+              f"|p_js - p_scipy|_max={dp:.2e}, p_js={np.round(js['params'], 5).tolist()}")
+
+
 def compare_numerical_gradient():
     """opt numericalGradient vs scipy.optimize.approx_fprime and analytic."""
     print("\n== numericalGradient vs scipy.optimize.approx_fprime ==")
@@ -278,6 +329,8 @@ def main():
     compare_lbfgs()
     compare_scalar()
     compare_curve_fit()
+    compare_bounds()
+    compare_robust_losses()
     compare_gradient_methods()
     compare_numerical_gradient()
     print(f"\n{len(FAILURES)} failure(s)" if FAILURES else "\nAll comparisons passed.")

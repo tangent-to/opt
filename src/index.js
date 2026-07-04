@@ -14,6 +14,7 @@ export { strongWolfeLineSearch } from './linesearch.js';
 export { minimizeScalar, rootScalar } from './scalar.js';
 export { curveFit, leastSquares } from './leastsq.js';
 export { solve } from './linsolve.js';
+export { makeBoundsTransform } from './bounds.js';
 export { numericalGradient } from './numdiff.js';
 
 // tangent/ds compatibility layer (ds.core.optimize drop-in)

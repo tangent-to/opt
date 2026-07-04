@@ -4,14 +4,22 @@ Declarative numerical optimization for JavaScript (ESM). Browser-first, zero
 dependencies, runs in Node.js and Deno. Companion package to
 [tangent/ds](https://github.com/tangent-to/ds).
 
-- **Quasi-Newton**: L-BFGS with strong Wolfe line search
+A deliberately small roster: the textbook methods that build intuition plus
+the modern defaults that do the work — nothing in between.
+
+- **Quasi-Newton**: L-BFGS with strong Wolfe line search — the modern
+  default for smooth problems
 - **Derivative-free**: Nelder-Mead downhill simplex
-- **Gradient-based**: gradient descent (optional backtracking line search),
-  momentum, RMSProp, Adam
+- **Gradient-based**: gradient descent (the teaching baseline, optional
+  backtracking line search) and Adam (the modern stochastic default)
 - **Scalar**: Brent minimization and golden section with auto-bracketing;
   Brent-Dekker and bisection root-finding
 - **Least squares**: Levenberg-Marquardt and scipy-style `curveFit` with
-  covariance / standard errors
+  covariance / standard errors, robust losses (`huber`, `soft_l1`,
+  `cauchy`) for outlier-resistant fitting
+- **Box bounds on everything**: MINUIT-style parameter transforms bound any
+  method (`bounds: [[0, 10], [null, 5]]`) — the approach particle physics
+  has fitted with for fifty years
 - **Gradients optional**: pass an analytic gradient or Jacobian, return
   `{loss, gradient}` from your objective, or let central finite differences
   fill in
@@ -59,6 +67,9 @@ const { params, stdErr } = curveFit({
   x: xdata,
   y: ydata,
   p0: [1, 1, 0],
+  bounds: [[0, null], [0, null], [null, null]], // optional box bounds
+  loss: 'huber',                                 // optional robust loss
+  fScale: 0.1,
 });
 ```
 
@@ -110,11 +121,15 @@ errors to ~1e-9), gradient methods vs the BFGS reference optimum, and
 npm run test:scipy
 ```
 
-## Roadmap
+## Scope
 
-- Bounds (L-BFGS-B-style projection, box constraints for `leastSquares`)
-- Conjugate gradient
-- Global methods (differential evolution, basin hopping)
+The roster is intentionally frozen around textbook-plus-modern: methods that
+are either great for understanding (Nelder-Mead, gradient descent, golden
+section, bisection) or current best practice (L-BFGS, Adam, Brent,
+Levenberg-Marquardt with robust losses and bounds). Superseded intermediates
+(momentum, RMSProp) remain importable for tangent/ds compatibility but are
+not part of the declarative `minimize()` roster. General constrained NLP,
+LP/QP, and global optimizers are out of scope.
 
 ## License
 

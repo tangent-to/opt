@@ -18,8 +18,18 @@
 
 import { nelderMead } from './neldermead.js';
 import { lbfgs } from './lbfgs.js';
-import { adam, gradientDescent, momentumDescent, rmsprop } from './gradient.js';
+import { adam, gradientDescent } from './gradient.js';
+import { makeBoundsTransform, wrapObjective } from './bounds.js';
 
+/**
+ * The curated roster: textbook-intuitive plus modern best practice.
+ * - neldermead: derivative-free, geometric intuition
+ * - lbfgs: the modern default for smooth objectives
+ * - gd: the teaching baseline for gradient descent
+ * - adam: the modern default for stochastic/ML-style objectives
+ * momentumDescent and rmsprop remain importable (and in the ds compat
+ * layer) but are deliberately not part of the declarative roster.
+ */
 const METHODS = {
   neldermead: nelderMead,
   'nelder-mead': nelderMead,
@@ -28,8 +38,6 @@ const METHODS = {
   gd: gradientDescent,
   sgd: gradientDescent,
   gradient_descent: gradientDescent,
-  momentum: momentumDescent,
-  rmsprop: rmsprop,
   adam: adam,
 };
 
@@ -54,7 +62,7 @@ export function methods() {
  * @returns {Object} {x, fx, iterations, converged, method, ...}
  */
 export function minimize(spec = {}) {
-  const { f, x0, method = 'neldermead', ...options } = spec;
+  const { f, x0, method = 'neldermead', bounds, ...options } = spec;
 
   if (typeof f !== 'function') {
     throw new Error('minimize: spec.f must be a function');
@@ -69,6 +77,18 @@ export function minimize(spec = {}) {
     throw new Error(
       `minimize: unknown method '${method}'. Available: ${Object.keys(METHODS).join(', ')}`,
     );
+  }
+
+  // Box bounds: run the method in MINUIT-transformed internal space.
+  // history/gradNorm are then reported in internal coordinates.
+  const T = bounds ? makeBoundsTransform(bounds, x0.length) : null;
+  if (T) {
+    const wrapped = wrapObjective(f, options.grad, T);
+    const result = minimizer(wrapped.f, T.toInternal(x0), { ...options, grad: wrapped.grad });
+    result.x = T.toExternal(result.x);
+    result.method = key;
+    result.bounded = true;
+    return result;
   }
 
   const result = minimizer(f, x0, options);

@@ -31,6 +31,7 @@ const SCALAR_FUNCS = {
 const MODELS = {
   exp_decay: (x, p) => p[0] * Math.exp(-p[1] * x) + p[2],
   sigmoid: (x, p) => p[0] / (1 + Math.exp(-p[1] * (x - p[2]))),
+  linear: (x, p) => p[0] * x + p[1],
 };
 
 const GRADS = {
