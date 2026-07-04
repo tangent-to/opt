@@ -4,10 +4,15 @@ Declarative numerical optimization for JavaScript (ESM). Browser-first, zero
 dependencies, runs in Node.js and Deno. Companion package to
 [tangent/ds](https://github.com/tangent-to/ds).
 
+- **Quasi-Newton**: L-BFGS with strong Wolfe line search
 - **Derivative-free**: Nelder-Mead downhill simplex
 - **Gradient-based**: gradient descent (optional backtracking line search),
   momentum, RMSProp, Adam
-- **Gradients optional**: pass an analytic gradient, return
+- **Scalar**: Brent minimization and golden section with auto-bracketing;
+  Brent-Dekker and bisection root-finding
+- **Least squares**: Levenberg-Marquardt and scipy-style `curveFit` with
+  covariance / standard errors
+- **Gradients optional**: pass an analytic gradient or Jacobian, return
   `{loss, gradient}` from your objective, or let central finite differences
   fill in
 
@@ -32,14 +37,28 @@ const result = minimize({
 });
 // { x: [1, 1], fx: ~0, iterations, fevals, converged: true, method: 'neldermead' }
 
-// Gradient-based
+// Quasi-Newton (use this by default for smooth objectives)
 const fit = minimize({
   f: (x) => x[0] ** 2 + x[1] ** 2,
   grad: (x) => [2 * x[0], 2 * x[1]], // optional; finite differences otherwise
   x0: [3, -2],
-  method: 'adam',
-  learningRate: 0.1,
-  maxIter: 5000,
+  method: 'lbfgs',
+});
+```
+
+Scalar optimization, root-finding and curve fitting:
+
+```javascript
+import { curveFit, minimizeScalar, rootScalar } from '@tangent.to/opt';
+
+minimizeScalar(Math.cos, { bracket: [2, 4] });          // x ≈ π
+rootScalar(Math.cos, { bracket: [1, 2] });              // x ≈ π/2
+
+const { params, stdErr } = curveFit({
+  model: (x, [a, b, c]) => a * Math.exp(-b * x) + c,
+  x: xdata,
+  y: ydata,
+  p0: [1, 1, 0],
 });
 ```
 
@@ -79,11 +98,12 @@ const { x, history } = opt.minimize((x) => ({ loss, gradient }), x0);
 
 ## Validation against scipy
 
-`tests_compare-to-scipy/` cross-checks the minimizers against
-`scipy.optimize` on standard test functions (Rosenbrock, Booth, Himmelblau,
-Beale, sphere): Nelder-Mead vs scipy's Nelder-Mead, gradient methods vs the
-BFGS reference optimum, and `numericalGradient` vs `approx_fprime`. Agreement
-is at 1e-3 or better on x (typically 1e-5). Requires
+`tests_compare-to-scipy/` cross-checks every method against `scipy.optimize`:
+Nelder-Mead vs scipy's Nelder-Mead, L-BFGS vs `L-BFGS-B` (matching iteration
+counts), `minimizeScalar` vs `minimize_scalar`, `rootScalar` vs `brentq`
+(1e-10 agreement), `curveFit` vs `curve_fit` (parameters *and* standard
+errors to ~1e-9), gradient methods vs the BFGS reference optimum, and
+`numericalGradient` vs `approx_fprime`. Requires
 [uv](https://docs.astral.sh/uv/) and Node:
 
 ```bash
@@ -92,10 +112,9 @@ npm run test:scipy
 
 ## Roadmap
 
-- `opt/minimize`: L-BFGS, conjugate gradient (Wolfe line search)
-- `opt/scalar`: Brent minimization, golden section, bisection root-finding
-- `opt/leastsq`: Levenberg-Marquardt, `curveFit`
-- Bounds via projection
+- Bounds (L-BFGS-B-style projection, box constraints for `leastSquares`)
+- Conjugate gradient
+- Global methods (differential evolution, basin hopping)
 
 ## License
 

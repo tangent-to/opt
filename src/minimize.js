@@ -17,11 +17,14 @@
  */
 
 import { nelderMead } from './neldermead.js';
+import { lbfgs } from './lbfgs.js';
 import { adam, gradientDescent, momentumDescent, rmsprop } from './gradient.js';
 
 const METHODS = {
   neldermead: nelderMead,
   'nelder-mead': nelderMead,
+  lbfgs: lbfgs,
+  'l-bfgs': lbfgs,
   gd: gradientDescent,
   sgd: gradientDescent,
   gradient_descent: gradientDescent,

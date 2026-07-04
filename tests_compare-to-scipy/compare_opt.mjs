@@ -17,8 +17,21 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { minimize, numericalGradient } from '../src/index.js';
+import { curveFit, minimize, minimizeScalar, numericalGradient, rootScalar } from '../src/index.js';
 import * as functions from '../tests/functions.js';
+
+const SCALAR_FUNCS = {
+  cos: Math.cos,
+  quartic: (x) => (x - 2) ** 4,
+  cubic: (x) => x ** 3 - 2 * x - 5,
+  logroot: (x) => Math.log(x) - 1,
+  shifted_parabola: (x) => (x - 7.3) ** 2 + 1,
+};
+
+const MODELS = {
+  exp_decay: (x, p) => p[0] * Math.exp(-p[1] * x) + p[2],
+  sigmoid: (x, p) => p[0] / (1 + Math.exp(-p[1] * (x - p[2]))),
+};
 
 const GRADS = {
   sphere: functions.sphereGrad,
@@ -32,6 +45,40 @@ if (!specPath) {
 }
 
 const spec = JSON.parse(readFileSync(specPath, 'utf8'));
+
+if (spec.mode === 'minimize_scalar' || spec.mode === 'root_scalar') {
+  const fn = SCALAR_FUNCS[spec.function];
+  if (!fn) {
+    console.error(`unknown scalar function: ${spec.function}`);
+    process.exit(1);
+  }
+  const runner = spec.mode === 'minimize_scalar' ? minimizeScalar : rootScalar;
+  const result = runner(fn, spec.options || {});
+  process.stdout.write(JSON.stringify({
+    x: result.x,
+    fx: result.fx,
+    iterations: result.iterations,
+    fevals: result.fevals,
+    converged: result.converged,
+  }));
+  process.exit(0);
+}
+
+if (spec.mode === 'curve_fit') {
+  const model = MODELS[spec.model];
+  if (!model) {
+    console.error(`unknown model: ${spec.model}`);
+    process.exit(1);
+  }
+  const result = curveFit({ model, x: spec.x, y: spec.y, p0: spec.p0, ...(spec.options || {}) });
+  process.stdout.write(JSON.stringify({
+    params: result.params,
+    stdErr: result.stdErr,
+    fx: result.fx,
+    converged: result.converged,
+  }));
+  process.exit(0);
+}
 
 const f = functions[spec.function];
 if (!f) {
