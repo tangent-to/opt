@@ -180,8 +180,10 @@ export function nelderMead(f, x0, options = {}) {
     x: Array.from(simplex[0]),
     fx: simplex[0].fx,
     iterations: iteration,
-    fevals,
+    nfev: fevals,
+    fevals, // deprecated alias for nfev
     converged,
+    success: converged, // suite-wide "did it work" flag (matches ode)
   };
   if (trackHistory) {
     result.history = history;

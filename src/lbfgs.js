@@ -168,5 +168,9 @@ export function lbfgs(f, x0, options = {}) {
     }
   }
 
-  return { x, fx, iterations: iteration, fevals, converged, history };
+  return {
+    x, fx, iterations: iteration,
+    nfev: fevals, fevals, // fevals is a deprecated alias for nfev
+    converged, success: converged, history,
+  };
 }

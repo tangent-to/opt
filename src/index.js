@@ -15,7 +15,7 @@ export { minimizeScalar, rootScalar } from './scalar.js';
 export { curveFit, leastSquares } from './leastsq.js';
 export { solve } from './linsolve.js';
 export { makeBoundsTransform } from './bounds.js';
-export { numericalGradient } from './numdiff.js';
+export { numericalGradient, numericalHessian, numericalJacobian } from './numdiff.js';
 
 // tangent/ds compatibility layer (ds.core.optimize drop-in)
 export {
@@ -33,7 +33,7 @@ import { adam, gradientDescent, momentumDescent, rmsprop } from './gradient.js';
 import { minimizeScalar, rootScalar } from './scalar.js';
 import { curveFit, leastSquares } from './leastsq.js';
 import { solve } from './linsolve.js';
-import { numericalGradient } from './numdiff.js';
+import { numericalGradient, numericalHessian, numericalJacobian } from './numdiff.js';
 import {
   AdamOptimizer,
   createOptimizer,
@@ -57,6 +57,8 @@ export default {
   curveFit,
   solve,
   numericalGradient,
+  numericalHessian,
+  numericalJacobian,
   GradientDescent,
   MomentumOptimizer,
   RMSProp,

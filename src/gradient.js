@@ -67,7 +67,12 @@ function descend(spec, f, x0, options = {}) {
   const verbose = options.verbose || false;
   const lineSearch = options.lineSearch || false;
 
-  const evaluate = makeEvaluator(f, options.grad, options);
+  const evaluateRaw = makeEvaluator(f, options.grad, options);
+  let nfev = 0;
+  const evaluate = (xx) => {
+    nfev++;
+    return evaluateRaw(xx);
+  };
 
   const x = [...x0];
   const state = spec.init(x.length);
@@ -114,7 +119,7 @@ function descend(spec, f, x0, options = {}) {
 
   const fx = converged ? lastLoss : evaluate(x).loss;
 
-  return { x, fx, iterations: iteration, converged, history };
+  return { x, fx, iterations: iteration, nfev, converged, success: converged, history };
 }
 
 /**

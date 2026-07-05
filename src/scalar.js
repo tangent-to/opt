@@ -393,7 +393,9 @@ export function minimizeScalar(f, options = {}) {
   const result = method === 'brent'
     ? brentMinimize(fn, xa, xb, xc, fb, xTol, maxIter)
     : goldenMinimize(fn, xa, xb, xc, fb, xTol, maxIter);
-  result.fevals = fevals;
+  result.nfev = fevals;
+  result.fevals = fevals; // deprecated alias for nfev
+  result.success = result.converged;
   return result;
 }
 
@@ -599,10 +601,10 @@ export function rootScalar(f, options = {}) {
     );
   }
   if (fa === 0) {
-    return { x: a, fx: fa, iterations: 0, fevals, converged: true };
+    return { x: a, fx: fa, iterations: 0, nfev: fevals, fevals, converged: true, success: true };
   }
   if (fb === 0) {
-    return { x: b, fx: fb, iterations: 0, fevals, converged: true };
+    return { x: b, fx: fb, iterations: 0, nfev: fevals, fevals, converged: true, success: true };
   }
   if ((fa > 0) === (fb > 0)) {
     throw new Error(
@@ -614,6 +616,8 @@ export function rootScalar(f, options = {}) {
   const result = method === 'brent'
     ? brentRoot(fn, a, b, fa, fb, xTol, rTol, maxIter)
     : bisectRoot(fn, a, b, fa, xTol, rTol, maxIter);
-  result.fevals = fevals;
+  result.nfev = fevals;
+  result.fevals = fevals; // deprecated alias for nfev
+  result.success = result.converged;
   return result;
 }
