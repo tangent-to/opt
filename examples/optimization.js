@@ -14,7 +14,11 @@ the same mental model carries across methods.
 
 // %% [javascript]
 
-import { minimize, curveFit, rootScalar, minimizeScalar } from 'https://esm.sh/@tangent.to/opt';
+import * as __lib from 'https://esm.sh/@tangent.to/opt';
+const minimize = __lib.minimize;
+const curveFit = __lib.curveFit;
+const rootScalar = __lib.rootScalar;
+const minimizeScalar = __lib.minimizeScalar;
 
 // The default method is Nelder-Mead, a derivative-free simplex search. It only
 // needs the objective and a starting point, which makes it the safe first
