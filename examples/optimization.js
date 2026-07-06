@@ -12,16 +12,11 @@ JavaScript: function minimization in one or many variables, nonlinear least
 squares (curve fitting), and scalar root finding. Every routine follows the
 same declarative options-object style and returns a plain result object, so
 the same mental model carries across methods.
-
-This notebook imports the local build. Once the package is published you would
-import it from a CDN instead:
-
-    import { minimize, curveFit, rootScalar } from 'https://esm.sh/@tangent.to/opt';
 */
 
 // %% [javascript]
 
-import { minimize, curveFit, rootScalar, minimizeScalar } from '../dist/index.js';
+import { minimize, curveFit, rootScalar, minimizeScalar } from 'https://esm.sh/@tangent.to/opt';
 
 // The default method is Nelder-Mead, a derivative-free simplex search. It only
 // needs the objective and a starting point, which makes it the safe first
