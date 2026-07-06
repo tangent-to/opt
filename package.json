@@ -31,7 +31,8 @@
     "jsr:publish:dry-run": "deno publish --dry-run --allow-dirty",
     "deno:lint": "deno lint src/",
     "deno:fmt": "deno fmt src/",
-    "deno:check": "deno check src/index.js"
+    "deno:check": "deno check src/index.js",
+    "version": "node scripts/sync-version.mjs && git add deno.json"
   },
   "keywords": [
     "optimization",
