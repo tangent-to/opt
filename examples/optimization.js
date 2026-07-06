@@ -5,8 +5,6 @@
 
 // %% [markdown]
 /*
-# Numerical optimization
-
 `@tangent.to/opt` is a small, dependency-free optimization toolkit for
 JavaScript: function minimization in one or many variables, nonlinear least
 squares (curve fitting), and scalar root finding. Every routine follows the
@@ -25,6 +23,36 @@ minimize({
   f: (x) => (x[0] - 1) ** 2 + (x[1] - 3) ** 2,
   x0: [0, 0],
 }).x; // near [1, 3]
+
+// %% [javascript]
+
+// Small helper used below: sample a 1-D slice of an objective through the
+// located optimum along one coordinate, and mark the minimum with a dot.
+// (Plot and d3 are preloaded globals in note.tangent.to, so no import.)
+const objectiveSlice = (f, min, axis, [lo, hi]) => {
+  const n = 200;
+  const pts = Array.from({ length: n + 1 }, (_, i) => {
+    const t = lo + ((hi - lo) * i) / n;
+    const p = min.slice();
+    p[axis] = t;
+    return { x: t, y: f(p) };
+  });
+  return Plot.plot({
+    width: 640,
+    height: 320,
+    x: { label: `x[${axis}]  (other coordinates fixed at the optimum)` },
+    y: { label: 'f(x)' },
+    marks: [
+      Plot.line(pts, { x: 'x', y: 'y', stroke: 'steelblue' }),
+      Plot.dot([{ x: min[axis], y: f(min) }], {
+        x: 'x',
+        y: 'y',
+        fill: 'red',
+        r: 5,
+      }),
+    ],
+  });
+};
 
 // %% [markdown]
 /*
@@ -51,6 +79,16 @@ const boothResult = minimize({ f: booth, x0: [0, 0] });
   converged: boothResult.converged,
   method: boothResult.method,
 });
+
+// %% [markdown]
+/*
+A 1-D slice of the Booth function through the located optimum along x[0]; the
+red dot marks the minimum `minimize` found.
+*/
+
+// %% [javascript]
+
+objectiveSlice(booth, boothResult.x, 0, [-4, 6]);
 
 // %% [markdown]
 /*
@@ -89,6 +127,16 @@ const rosen = minimize({
 
 // %% [markdown]
 /*
+A slice of the Rosenbrock function through the solution along x[0]; the red dot
+sits at the minimum near [1, 1] that L-BFGS threaded up the curved valley to.
+*/
+
+// %% [javascript]
+
+objectiveSlice(rosenbrock, rosen.x, 0, [-1.5, 1.5]);
+
+// %% [markdown]
+/*
 ## Curve fitting with uncertainties
 
 `curveFit` solves a nonlinear least squares problem: given data `(x, y)` and a
@@ -116,6 +164,33 @@ const fit = curveFit({ model, x: xs, y: ys, p0: [1, 1, 0] });
   params: fit.params, // close to [5, 1.5, 0.5]
   stdErr: fit.stdErr,
   converged: fit.converged,
+});
+
+// %% [markdown]
+/*
+The key visual: the noisy data points (blue) overlaid with the fitted
+exponential decay `a·exp(-b·x) + c` drawn as a smooth red curve over the x-range.
+*/
+
+// %% [javascript]
+
+const fitCurve = Array.from({ length: 200 }, (_, i) => {
+  const x = (i * 4) / 199;
+  return { x, y: model(x, fit.params) };
+});
+
+Plot.plot({
+  width: 640,
+  height: 340,
+  x: { label: 'x' },
+  y: { label: 'y' },
+  marks: [
+    Plot.dot(
+      xs.map((x, i) => ({ x, y: ys[i] })),
+      { x: 'x', y: 'y', fill: 'steelblue', r: 3 },
+    ),
+    Plot.line(fitCurve, { x: 'x', y: 'y', stroke: 'crimson', strokeWidth: 2 }),
+  ],
 });
 
 // %% [markdown]
@@ -154,6 +229,39 @@ const robustFit = curveFit({
 
 // %% [markdown]
 /*
+Data with three gross outliers (gray). The ordinary least-squares fit (orange)
+is dragged upward toward them, while the Huber-robust fit (red) stays with the
+bulk of the data.
+*/
+
+// %% [javascript]
+
+const plainCurve = Array.from({ length: 200 }, (_, i) => {
+  const x = (i * 4) / 199;
+  return { x, y: model(x, plainFit.params) };
+});
+const robustCurve = Array.from({ length: 200 }, (_, i) => {
+  const x = (i * 4) / 199;
+  return { x, y: model(x, robustFit.params) };
+});
+
+Plot.plot({
+  width: 640,
+  height: 340,
+  x: { label: 'x' },
+  y: { label: 'y' },
+  marks: [
+    Plot.dot(
+      xs.map((x, i) => ({ x, y: yOutliers[i] })),
+      { x: 'x', y: 'y', fill: '#888', r: 3 },
+    ),
+    Plot.line(plainCurve, { x: 'x', y: 'y', stroke: 'orange', strokeWidth: 2 }),
+    Plot.line(robustCurve, { x: 'x', y: 'y', stroke: 'crimson', strokeWidth: 2 }),
+  ],
+});
+
+// %% [markdown]
+/*
 ## Scalar root finding and minimization
 
 For one-dimensional problems the scalar routines are exact and fast.
@@ -172,4 +280,53 @@ const minS = minimizeScalar((x) => (x - 2) ** 2 + 1, { bracket: [0, 5] });
   pi_over_2: Math.PI / 2,
   min_x: minS.x, // 2
   min_fx: minS.fx, // 1
+});
+
+// %% [markdown]
+/*
+`rootScalar` on cos over [0.5, 2.5]: the red dot sits where the blue curve
+crosses zero (the horizontal rule), at the root π/2 that Brent-Dekker returned.
+*/
+
+// %% [javascript]
+
+const cosPts = Array.from({ length: 200 }, (_, i) => {
+  const x = 0.5 + ((2.5 - 0.5) * i) / 199;
+  return { x, y: Math.cos(x) };
+});
+
+Plot.plot({
+  width: 640,
+  height: 300,
+  x: { label: 'x' },
+  y: { label: 'cos(x)' },
+  marks: [
+    Plot.ruleY([0]),
+    Plot.line(cosPts, { x: 'x', y: 'y', stroke: 'steelblue' }),
+    Plot.dot([{ x: root.x, y: 0 }], { x: 'x', y: 'y', fill: 'red', r: 5 }),
+  ],
+});
+
+// %% [markdown]
+/*
+`minimizeScalar` on the parabola (x − 2)² + 1 over [0, 5]: the red dot marks the
+located minimum at x = 2, f = 1.
+*/
+
+// %% [javascript]
+
+const parab = Array.from({ length: 200 }, (_, i) => {
+  const x = (5 * i) / 199;
+  return { x, y: (x - 2) ** 2 + 1 };
+});
+
+Plot.plot({
+  width: 640,
+  height: 300,
+  x: { label: 'x' },
+  y: { label: 'f(x)' },
+  marks: [
+    Plot.line(parab, { x: 'x', y: 'y', stroke: 'steelblue' }),
+    Plot.dot([{ x: minS.x, y: minS.fx }], { x: 'x', y: 'y', fill: 'red', r: 5 }),
+  ],
 });
