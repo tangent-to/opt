@@ -22,11 +22,11 @@ const minimizeScalar = __lib.minimizeScalar;
 
 // The default method is Nelder-Mead, a derivative-free simplex search. It only
 // needs the objective and a starting point, which makes it the safe first
-// choice when you have no gradient.
+// choice when you have no gradient. The located minimum is near [1, 3].
 minimize({
   f: (x) => (x[0] - 1) ** 2 + (x[1] - 3) ** 2,
   x0: [0, 0],
-}).x; // near [1, 3]
+}).x;
 
 // %% [javascript]
 
