@@ -1,6 +1,6 @@
 {
   "name": "@tangent.to/opt",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Declarative numerical optimization for JavaScript (ESM): Nelder-Mead, gradient descent, momentum, RMSProp, Adam",
   "type": "module",
   "main": "./dist/index.js",
