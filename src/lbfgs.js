@@ -60,6 +60,8 @@ export function lbfgs(f, x0, options = {}) {
   let head = 0; // next slot to write
 
   const d = new Float64Array(n);
+  const sCand = new Float64Array(n); // candidate curvature pair, copied into
+  const yCand = new Float64Array(n); // the ring only if it passes acceptance
   const history = { loss: [], gradNorm: [] };
 
   let x = [...x0];
@@ -134,16 +136,17 @@ export function lbfgs(f, x0, options = {}) {
     }
     if (!ls.success) break; // converged stays false
 
-    // Store the curvature pair when it keeps H positive definite
-    const s = S[head];
-    const y = Y[head];
+    // Store the curvature pair only when it keeps H positive definite;
+    // a rejected pair must leave the ring buffer untouched
     let ys = 0;
     for (let i = 0; i < n; i++) {
-      s[i] = ls.xNew[i] - x[i];
-      y[i] = ls.gradient[i] - g[i];
-      ys += s[i] * y[i];
+      sCand[i] = ls.xNew[i] - x[i];
+      yCand[i] = ls.gradient[i] - g[i];
+      ys += sCand[i] * yCand[i];
     }
-    if (ys > 1e-10 * norm2(s) * norm2(y)) {
+    if (ys > 1e-10 * norm2(sCand) * norm2(yCand)) {
+      S[head].set(sCand);
+      Y[head].set(yCand);
       rhoBuf[head] = 1 / ys;
       head = (head + 1) % m;
       if (stored < m) stored++;
