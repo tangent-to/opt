@@ -1,13 +1,16 @@
 /**
  * Gradient-based minimizers: gradient descent, momentum, RMSProp, Adam.
  *
- * Moved from tangent/ds (ds.core.optimize). Update rules are unchanged;
- * the API is functional and all methods share the evaluator contract from
- * evaluate.js, so objectives may be (x) => number with an optional separate
- * gradient, or the combined (x) => {loss, gradient} form used in tangent/ds.
+ * Moved from tangent/ds (ds.core.optimize). The update rules themselves are
+ * in steps.js, exported one step at a time for loops this file cannot run
+ * (a mini-batch training loop owns its own sampling); the drivers here wrap
+ * them in the shared descent loop. All methods share the evaluator contract
+ * from evaluate.js, so objectives may be (x) => number with an optional
+ * separate gradient, or the combined (x) => {loss, gradient} form.
  */
 
 import { makeEvaluator } from './evaluate.js';
+import { adamStep, gradientStep, momentumStep, rmspropStep } from './steps.js';
 
 function gradNorm(gradient) {
   let sum = 0;
@@ -52,8 +55,8 @@ export function backtrackingLineSearch(evaluate, x, gradient, currentLoss) {
  * Shared descent loop.
  *
  * @param {Object} spec
- * @param {Function} spec.init - (n) => state
- * @param {Function} spec.step - ({x, gradient, state, iter, lr}) mutates x in place
+ * @param {Function} spec.step - (x, gradient, state, lr) => state; one update
+ *   rule from steps.js, moving x in place
  * @param {boolean} [spec.trackLearningRate] - Record per-iteration step sizes
  * @param {Function} f - Objective
  * @param {Array<number>} x0 - Initial parameters
@@ -75,7 +78,7 @@ function descend(spec, f, x0, options = {}) {
   };
 
   const x = [...x0];
-  const state = spec.init(x.length);
+  let state = null;
 
   const history = { loss: [], gradNorm: [] };
   if (spec.trackLearningRate) {
@@ -110,7 +113,7 @@ function descend(spec, f, x0, options = {}) {
       history.learningRate.push(lr);
     }
 
-    spec.step({ x, gradient, state, iter: iteration, lr });
+    state = spec.step(x, gradient, state, lr);
 
     if (verbose && iteration % 100 === 0) {
       console.log(`Iter ${iteration}: loss=${loss.toFixed(6)}, grad_norm=${norm.toFixed(6)}`);
@@ -133,12 +136,7 @@ function descend(spec, f, x0, options = {}) {
 export function gradientDescent(f, x0, options = {}) {
   return descend(
     {
-      init: () => null,
-      step: ({ x, gradient, lr }) => {
-        for (let i = 0; i < x.length; i++) {
-          x[i] -= lr * gradient[i];
-        }
-      },
+      step: (x, gradient, state, lr) => gradientStep(x, gradient, state, { learningRate: lr }),
       trackLearningRate: true,
     },
     f,
@@ -159,13 +157,8 @@ export function momentumDescent(f, x0, options = {}) {
   const momentum = options.momentum || 0.9;
   return descend(
     {
-      init: (n) => ({ velocity: new Array(n).fill(0) }),
-      step: ({ x, gradient, state, lr }) => {
-        for (let i = 0; i < x.length; i++) {
-          state.velocity[i] = momentum * state.velocity[i] + lr * gradient[i];
-          x[i] -= state.velocity[i];
-        }
-      },
+      step: (x, gradient, state, lr) =>
+        momentumStep(x, gradient, state, { learningRate: lr, momentum }),
     },
     f,
     x0,
@@ -186,13 +179,8 @@ export function rmsprop(f, x0, options = {}) {
   const epsilon = options.epsilon || 1e-8;
   return descend(
     {
-      init: (n) => ({ cache: new Array(n).fill(0) }),
-      step: ({ x, gradient, state, lr }) => {
-        for (let i = 0; i < x.length; i++) {
-          state.cache[i] = decay * state.cache[i] + (1 - decay) * gradient[i] * gradient[i];
-          x[i] -= lr * gradient[i] / (Math.sqrt(state.cache[i]) + epsilon);
-        }
-      },
+      step: (x, gradient, state, lr) =>
+        rmspropStep(x, gradient, state, { learningRate: lr, decay, epsilon }),
     },
     f,
     x0,
@@ -214,20 +202,8 @@ export function adam(f, x0, options = {}) {
   const epsilon = options.epsilon || 1e-8;
   return descend(
     {
-      init: (n) => ({ m: new Array(n).fill(0), v: new Array(n).fill(0) }),
-      step: ({ x, gradient, state, iter, lr }) => {
-        const { m, v } = state;
-        for (let i = 0; i < x.length; i++) {
-          m[i] = beta1 * m[i] + (1 - beta1) * gradient[i];
-          v[i] = beta2 * v[i] + (1 - beta2) * gradient[i] * gradient[i];
-        }
-        const t = iter + 1;
-        for (let i = 0; i < x.length; i++) {
-          const mHat = m[i] / (1 - Math.pow(beta1, t));
-          const vHat = v[i] / (1 - Math.pow(beta2, t));
-          x[i] -= lr * mHat / (Math.sqrt(vHat) + epsilon);
-        }
-      },
+      step: (x, gradient, state, lr) =>
+        adamStep(x, gradient, state, { learningRate: lr, beta1, beta2, epsilon }),
     },
     f,
     x0,

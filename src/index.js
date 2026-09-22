@@ -10,6 +10,7 @@ export { methods, minimize } from './minimize.js';
 export { nelderMead } from './neldermead.js';
 export { lbfgs } from './lbfgs.js';
 export { adam, backtrackingLineSearch, gradientDescent, momentumDescent, rmsprop } from './gradient.js';
+export { adamStep, gradientStep, momentumStep, rmspropStep } from './steps.js';
 export { strongWolfeLineSearch } from './linesearch.js';
 export { minimizeScalar, rootScalar } from './scalar.js';
 export { curveFit, leastSquares } from './leastsq.js';
@@ -30,6 +31,7 @@ import { methods, minimize } from './minimize.js';
 import { nelderMead } from './neldermead.js';
 import { lbfgs } from './lbfgs.js';
 import { adam, gradientDescent, momentumDescent, rmsprop } from './gradient.js';
+import { adamStep, gradientStep, momentumStep, rmspropStep } from './steps.js';
 import { minimizeScalar, rootScalar } from './scalar.js';
 import { curveFit, leastSquares } from './leastsq.js';
 import { solve } from './linsolve.js';
@@ -51,6 +53,10 @@ export default {
   momentumDescent,
   rmsprop,
   adam,
+  gradientStep,
+  momentumStep,
+  rmspropStep,
+  adamStep,
   minimizeScalar,
   rootScalar,
   leastSquares,

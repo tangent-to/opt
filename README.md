@@ -81,6 +81,34 @@ import { adam, gradientDescent, nelderMead } from '@tangent.to/opt';
 const r = nelderMead(f, x0, { maxIter: 2000, history: true });
 ```
 
+### Update rules, one step at a time
+
+A training loop that samples its own mini-batches cannot hand its objective
+to a driver, so each rule is also exported as a step: it moves `x` in place,
+keeps its moments in a state it creates on the first call, and reads its
+options on every call, which makes a learning-rate schedule a number changed
+between two steps. The drivers above are built from these, so there is one
+copy of each rule.
+
+```javascript
+import { adamStep } from '@tangent.to/opt';
+
+const opts = { learningRate: 1e-3 };
+let state = null;
+for (const batch of batches) {
+  const { gradient } = step(params, batch);       // a @tangent.to/grad compiled objective, say
+  state = adamStep(params, gradient, state, opts); // params: number[] or Float64Array
+}
+```
+
+`gradientStep`, `momentumStep`, `rmspropStep` and `adamStep` share that
+signature. A caller with several parameter tensors keeps one state per
+tensor.
+
+Objectives may also return `{ value, gradient }`, which is what
+`@tangent.to/grad`'s `valueAndGrad` and `compile` return, so one of those is
+an objective for `lbfgs` or `adam` as it stands.
+
 ### Result shape
 
 All methods return:
