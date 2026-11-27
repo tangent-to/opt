@@ -31,6 +31,17 @@ describe('makeBoundsTransform', () => {
 });
 
 describe('minimize with bounds', () => {
+  it.each(['loss', 'value'])('transforms a combined {%s, gradient} objective (lbfgs)', (key) => {
+    const result = minimize({
+      f: ([x]) => ({ [key]: (x - 1) ** 2, gradient: [2 * (x - 1)] }),
+      x0: [0],
+      method: 'lbfgs',
+      bounds: [[null, 2]],
+    });
+    expect(result.converged).toBe(true);
+    expect(result.x[0]).toBeCloseTo(1, 5);
+  });
+
   it('leaves an interior optimum untouched (lbfgs)', () => {
     const result = minimize({
       f: booth,

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Bounded minimization applies the chain rule to objectives returning
+  `{ value, gradient }`, including compiled Grad objectives.
+
 ### Added
 - **Update rules as steps.** `gradientStep`, `momentumStep`, `rmspropStep`
   and `adamStep`, each `state = step(x, gradient, state, options)`: moves `x`

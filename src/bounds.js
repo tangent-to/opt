@@ -140,8 +140,8 @@ export function makeBoundsTransform(bounds, n) {
 
 /**
  * Wrap an objective (and optional gradient) so optimizers can run in
- * internal space. Supports both the scalar form (x) => number and the
- * combined form (x) => {loss, gradient}.
+ * internal space. Supports scalar objectives and combined objectives
+ * returning either {loss, gradient} or {value, gradient}.
  *
  * @param {Function} f - External objective
  * @param {Function|undefined} grad - External gradient
@@ -151,9 +151,11 @@ export function makeBoundsTransform(bounds, n) {
 export function wrapObjective(f, grad, T) {
   const fInt = (xInt) => {
     const out = f(T.toExternal(xInt));
-    if (out !== null && typeof out === 'object' && 'loss' in out) {
+    if (out !== null && typeof out === 'object' &&
+        ('loss' in out || 'value' in out) && out.gradient != null) {
       const d = T.dExtDInt(xInt);
-      return { loss: out.loss, gradient: out.gradient.map((gi, i) => gi * d[i]) };
+      const loss = 'loss' in out ? out.loss : out.value;
+      return { loss, gradient: out.gradient.map((gi, i) => gi * d[i]) };
     }
     return out;
   };

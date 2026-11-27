@@ -11,9 +11,8 @@
  *   });
  *   // result: {x, fx, iterations, converged, method, ...}
  *
- * Gradient-based methods use `grad` when provided, the combined
- * (x) => {loss, gradient} form when f returns one, and central finite
- * differences otherwise.
+ * Gradient-based methods use a gradient returned by the objective or a
+ * separate `grad` callback, with central finite differences as the fallback.
  */
 
 import { nelderMead } from './neldermead.js';
@@ -53,7 +52,7 @@ export function methods() {
  * Minimize a scalar function of one or more variables.
  *
  * @param {Object} spec
- * @param {Function} spec.f - Objective: (x) => number or (x) => {loss, gradient}
+ * @param {Function} spec.f - Objective returning a number, {loss, gradient}, or {value, gradient}
  * @param {Array<number>} spec.x0 - Initial parameters
  * @param {string} [spec.method='neldermead'] - One of methods()
  * @param {Function} [spec.grad] - Gradient: (x) => Array<number> (gradient methods only)
